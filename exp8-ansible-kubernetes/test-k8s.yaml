@@ -1,0 +1,15 @@
+---
+- name: Test Kubernetes Connection
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: List all pods in default namespace
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: default
+      register: pod_list
+
+    - name: Show pods
+      debug:
+        var: pod_list.resources

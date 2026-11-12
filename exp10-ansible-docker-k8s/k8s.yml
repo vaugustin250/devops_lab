@@ -1,0 +1,48 @@
+---
+- hosts: local
+  become: true
+  tasks:
+    - name: Install kubectl (once)
+      ansible.builtin.shell: |
+        set -e
+        if ! command -v kubectl >/dev/null 2>&1; then
+          V=$(curl -Ls https://dl.k8s.io/release/stable.txt)
+          curl -Lo kubectl "https://dl.k8s.io/release/${V}/bin/linux/amd64/kubectl"
+          install -m 0755 kubectl /usr/local/bin/kubectl
+        fi
+      args:
+        creates: /usr/local/bin/kubectl
+
+    - name: Install kind (once)
+      ansible.builtin.shell: |
+        set -e
+        if ! command -v kind >/dev/null 2>&1; then
+          curl -Lo kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          install -m 0755 kind /usr/local/bin/kind
+        fi
+      args:
+        creates: /usr/local/bin/kind
+
+    - name: Create kind cluster if missing
+      ansible.builtin.shell: |
+        set -e
+        kind get clusters | grep -q '^simple$' || kind create cluster --name simple
+
+    - name: Install Python Kubernetes library
+      ansible.builtin.apt:
+        name: python3-kubernetes
+        state: present
+
+    - name: Apply NGINX Deployment and Service
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', playbook_dir + '/k8s-nginx.yaml') | from_yaml_all | list }}"
+
+    - name: Show services
+      ansible.builtin.shell: kubectl get svc
+      register: svc
+      changed_when: false
+
+    - name: Print services
+      ansible.builtin.debug:
+        var: svc.stdout_lines

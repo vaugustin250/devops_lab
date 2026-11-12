@@ -1,0 +1,23 @@
+---
+- name: Gather Kubernetes Information
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Get all namespaces
+      kubernetes.core.k8s_info:
+        kind: Namespace
+      register: ns_info
+
+    - name: Show namespaces
+      debug:
+        var: ns_info.resources
+
+    - name: Get all nodes
+      kubernetes.core.k8s_info:
+        kind: Node
+      register: node_info
+
+    - name: Show nodes
+      debug:
+        var: node_info.resources

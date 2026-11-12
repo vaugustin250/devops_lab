@@ -1,0 +1,12 @@
+---
+- name: Create a Namespace Using Ansible
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Create namespace ansible-lab
+      kubernetes.core.k8s:
+        name: ansible-lab
+        api_version: v1
+        kind: Namespace
+        state: present

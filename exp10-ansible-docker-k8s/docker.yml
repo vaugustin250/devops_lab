@@ -1,0 +1,33 @@
+---
+- hosts: local
+  become: true
+  tasks:
+    - name: Install Docker (quick script)
+      ansible.builtin.shell: |
+        set -e
+        if ! command -v docker >/dev/null 2>&1; then curl -fsSL https://get.docker.com | sh; fi
+      args:
+        creates: /usr/bin/docker
+
+    - name: Install Python Docker library
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+
+    - name: Ensure Docker is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Run NGINX container on 8080
+      community.docker.docker_container:
+        name: web
+        image: nginx:alpine
+        published_ports:
+          - "8080:80"
+        restart_policy: always
+
+    - name: Show URL
+      ansible.builtin.debug:
+        msg: "Open http://localhost:8080"

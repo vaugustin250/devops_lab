@@ -1,0 +1,79 @@
+---
+- name: Deploy Flask app to localhost with systemd
+  hosts: local
+  become: true
+  vars:
+    deploy_user: "{{ lookup('env', 'SUDO_USER') or lookup('env', 'USER') }}"
+    app_root: "/opt/ansible_flask_app"
+    venv_path: "{{ app_root }}/venv"
+    gunicorn_workers: 2
+
+  pre_tasks:
+    - name: Ensure Python and system tools present (apt-based; skip if macOS)
+      package:
+        name: [python3, python3-venv, python3-pip]
+        state: present
+      when: ansible_os_family == 'Debian'
+
+  tasks:
+    - name: Create application directory
+      file:
+        path: "{{ app_root }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0755"
+
+    - name: Copy application source
+      copy:
+        src: "src_app/"
+        dest: "{{ app_root }}/"
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0644"
+
+    - name: Create venv
+      command: "python3 -m venv {{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    - name: Upgrade pip
+      command: "{{ venv_path }}/bin/pip install --upgrade pip"
+
+    - name: Install app dependencies
+      command: "{{ venv_path }}/bin/pip install -r {{ app_root }}/requirements.txt"
+
+    - name: Render wsgi entrypoint
+      template:
+        src: templates/wsgi.py.j2
+        dest: "{{ app_root }}/wsgi.py"
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0644"
+
+    - name: Place systemd unit
+      template:
+        src: files/app.service.j2
+        dest: "/etc/systemd/system/ansible-flask.service"
+        mode: "0644"
+      notify: ["daemon-reload", "restart app"]
+
+    - name: Enable service on boot
+      systemd:
+        name: ansible-flask.service
+        enabled: true
+
+    - name: Start service now
+      systemd:
+        name: ansible-flask.service
+        state: started
+
+  handlers:
+    - name: daemon-reload
+      systemd:
+        daemon_reload: true
+
+    - name: restart app
+      systemd:
+        name: ansible-flask.service
+        state: restarted

@@ -1,0 +1,15 @@
+[Unit]
+Description=Gunicorn for Flask app
+After=network.target
+
+[Service]
+User={{ deploy_user }}
+Group={{ deploy_user }}
+WorkingDirectory={{ app_root }}
+Environment="PATH={{ venv_path }}/bin"
+ExecStart={{ venv_path }}/bin/gunicorn --workers {{ gunicorn_workers }} --bind 127.0.0.1:8000 wsgi:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
